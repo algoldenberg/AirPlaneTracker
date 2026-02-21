@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+
+  tracker:
+    build: ./services/tracker
+    restart: always
+    env_file:
+      - ./services/tracker/.env
+    depends_on:
+      - redis
+
+  api:
+    build: ./services/api
+    restart: always
+    env_file:
+      - ./services/api/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
