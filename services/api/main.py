@@ -47,6 +47,16 @@ def get_flights():
     }
 
 
+@app.get("/flights/history")
+def get_history():
+    items = r.lrange("flights:history:list", 0, -1)
+    flights = [json.loads(item) for item in items]
+    return {
+        "count": len(flights),
+        "flights": flights,
+    }
+
+
 @app.get("/flights/{flight_id}")
 def get_flight(flight_id: str):
     data = r.get("flights:current")

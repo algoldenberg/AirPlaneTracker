@@ -1,0 +1,111 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0a0a;
+  color: #f5c518;
+  font-family: "Courier New", monospace;
+  min-height: 100vh;
+}
+
+.app {
+  padding: 20px;
+}
+
+.board {
+  max-width: 1000px;
+  margin: 0 auto;
+  border: 1px solid #f5c518;
+}
+
+.board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f5c518;
+  background-color: #111;
+}
+
+.board-header h1 {
+  font-size: 1.4rem;
+  letter-spacing: 2px;
+}
+
+.updated {
+  font-size: 0.8rem;
+  color: #aaa;
+}
+
+.board-columns {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr;
+  padding: 10px 20px;
+  background-color: #1a1a1a;
+  border-bottom: 1px solid #333;
+  font-size: 0.75rem;
+  color: #aaa;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.board-body {
+  min-height: 200px;
+}
+
+.flight-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr;
+  padding: 14px 20px;
+  border-bottom: 1px solid #1f1f1f;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  transition: background 0.2s;
+}
+
+.flight-row:hover {
+  background-color: #1a1a1a;
+}
+
+.callsign {
+  color: #f5c518;
+  font-weight: bold;
+}
+
+.route {
+  color: #fff;
+}
+
+.aircraft {
+  color: #aaa;
+}
+
+.altitude {
+  color: #4fc3f7;
+}
+
+.speed {
+  color: #81c784;
+}
+
+.heading {
+  color: #ce93d8;
+}
+
+.no-flights {
+  padding: 40px;
+  text-align: center;
+  color: #555;
+  font-size: 1rem;
+  letter-spacing: 2px;
+}
+
+.error {
+  padding: 12px 20px;
+  background-color: #2a0000;
+  color: #ff5555;
+  font-size: 0.85rem;
+}

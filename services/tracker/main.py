@@ -26,21 +26,21 @@ REDIS_PORT      = int(os.getenv("REDIS_PORT", 6379))
 
 def parse_flight(flight) -> dict:
     return {
-        "id":           flight.id,
-        "callsign":     getattr(flight, "callsign", None) or "—",
-        "airline_icao": getattr(flight, "airline_icao", None),
-        "aircraft":     getattr(flight, "aircraft_code", None),
-        "registration": getattr(flight, "registration", None),
-        "origin":       getattr(flight, "origin_airport_iata", None),
-        "destination":  getattr(flight, "destination_airport_iata", None),
-        "latitude":     getattr(flight, "latitude", None),
-        "longitude":    getattr(flight, "longitude", None),
-        "altitude_ft":  getattr(flight, "altitude", None),
-        "speed_kts":    getattr(flight, "ground_speed", None),
-        "heading_deg":  getattr(flight, "heading", None),
+        "id":             flight.id,
+        "callsign":       getattr(flight, "callsign", None) or "—",
+        "airline_icao":   getattr(flight, "airline_icao", None),
+        "aircraft":       getattr(flight, "aircraft_code", None),
+        "registration":   getattr(flight, "registration", None),
+        "origin":         getattr(flight, "origin_airport_iata", None),
+        "destination":    getattr(flight, "destination_airport_iata", None),
+        "latitude":       getattr(flight, "latitude", None),
+        "longitude":      getattr(flight, "longitude", None),
+        "altitude_ft":    getattr(flight, "altitude", None),
+        "speed_kts":      getattr(flight, "ground_speed", None),
+        "heading_deg":    getattr(flight, "heading", None),
         "vertical_speed": getattr(flight, "vertical_speed", None),
-        "on_ground":    bool(getattr(flight, "on_ground", False)),
-        "updated_at":   datetime.now().isoformat(),
+        "on_ground":      bool(getattr(flight, "on_ground", False)),
+        "updated_at":     datetime.now(tz=__import__('zoneinfo').ZoneInfo("Asia/Jerusalem")).isoformat(),
     }
 
 
@@ -51,15 +51,24 @@ def main():
 
     while True:
         try:
-            bounds  = fr.get_bounds_by_point(HOME_LAT, HOME_LON, RADIUS_METERS)
-            flights = fr.get_flights(bounds=bounds)
-
+            bounds   = fr.get_bounds_by_point(HOME_LAT, HOME_LON, RADIUS_METERS)
+            flights  = fr.get_flights(bounds=bounds)
             airborne = [parse_flight(f) for f in flights if not getattr(f, "on_ground", False)]
 
+            # Текущие рейсы
             r.set("flights:current", json.dumps(airborne))
-            r.set("flights:updated_at", datetime.now().isoformat())
+            r.set("flights:updated_at", datetime.now(tz=__import__('zoneinfo').ZoneInfo("Asia/Jerusalem")).isoformat())
 
-            log.info(f"✈  {len(airborne)} flights saved to Redis")
+            # История — каждый новый самолёт пишем один раз
+            for flight in airborne:
+                key = f"flights:history:{flight['id']}"
+                if not r.exists(key):
+                    r.lpush("flights:history:list", json.dumps(flight))
+                    r.set(key, "1")
+                    r.expire(key, 86400)  # дедупликация 24 часа
+                    log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")
+
+            log.info(f"✈  {len(airborne)} flights overhead")
 
         except Exception as e:
             log.error(f"Error: {e}")
