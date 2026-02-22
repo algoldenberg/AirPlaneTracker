@@ -65,6 +65,13 @@ function App() {
           <Route path="/" element={<LivePage />} />
           <Route path="/history" element={<HistoryPage />} />
         </Routes>
+        <footer className="footer">
+          <a href="https://github.com/algoldenberg/AirPlaneTracker" target="_blank" rel="noreferrer">GitHub</a>
+          {" · "}
+          <a href="https://github.com/algoldenberg/AirPlaneTracker/blob/master/LICENSE" target="_blank" rel="noreferrer">MIT License</a>
+          {" · "}
+          © 2026 Alex Goldenberg
+        </footer>
       </div>
     </BrowserRouter>
   );
