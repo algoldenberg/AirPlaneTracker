@@ -109,3 +109,79 @@ body {
   color: #ff5555;
   font-size: 0.85rem;
 }
+
+/* ── Tablet ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .board {
+    margin: 0;
+    border-left: none;
+    border-right: none;
+  }
+
+  .board-header h1 {
+    font-size: 1rem;
+  }
+
+  .board-columns,
+  .flight-row {
+    grid-template-columns: 1.5fr 2fr 1fr 1fr;
+  }
+
+  /* Скрываем speed и heading на планшете */
+  .board-columns span:nth-child(5),
+  .board-columns span:nth-child(6),
+  .flight-row .speed,
+  .flight-row .heading {
+    display: none;
+  }
+}
+
+/* ── Mobile ─────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .app {
+    padding: 0;
+  }
+
+  .board-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 14px;
+  }
+
+  .board-columns,
+  .flight-row {
+    grid-template-columns: 1.5fr 2fr 1fr;
+  }
+
+  /* Скрываем aircraft, speed, heading на мобиле */
+  .board-columns span:nth-child(3),
+  .board-columns span:nth-child(5),
+  .board-columns span:nth-child(6),
+  .flight-row .aircraft,
+  .flight-row .speed,
+  .flight-row .heading {
+    display: none;
+  }
+
+  .flight-row {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+}
+
+/* ── Widescreen ─────────────────────────────────────────── */
+@media (min-width: 1400px) {
+  .board {
+    max-width: 1200px;
+  }
+
+  .board-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .flight-row {
+    font-size: 1.1rem;
+    padding: 18px 24px;
+  }
+}

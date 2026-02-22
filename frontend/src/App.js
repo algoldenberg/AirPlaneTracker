@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import FlightBoard from "./components/FlightBoard";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "/api";
 
 function App() {
   const [flights, setFlights] = useState([]);
