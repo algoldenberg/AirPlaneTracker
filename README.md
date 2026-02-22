@@ -4,13 +4,7 @@ Real-time flight tracker that monitors aircraft flying over a specific location 
 
 Built as a microservices portfolio project.
 
----
-
-## 🏠 Tracked Location
-
-**Tel Aviv, Rosh Pina 28**  
-Coordinates: `32.0586944213453, 34.78301621182533`  
-Radius: `1 km`
+🌐 **Live:** [roshpinaoverhead.online](https://roshpinaoverhead.online)
 
 ---
 
@@ -20,12 +14,18 @@ Radius: `1 km`
 │   tracker   │────▶│ Redis │────▶│     api     │────▶│ frontend │
 │  (Python)   │     │       │     │  (FastAPI)  │     │  (React) │
 └─────────────┘     └───────┘     └─────────────┘     └──────────┘
+                                                              │
+                                                       ┌──────────┐
+                                                       │  nginx   │
+                                                       │ (proxy)  │
+                                                       └──────────┘
 ```
 
-- **tracker** — polls FlightRadar24 every 10 seconds, saves flights to Redis
-- **api** — FastAPI service, reads from Redis and exposes REST endpoints  
-- **frontend** — React app, polls the API every 10 seconds and displays a live board
+- **tracker** — polls FlightRadar24 every 5 seconds, saves flights to Redis
+- **api** — FastAPI service, reads from Redis and exposes REST endpoints
+- **frontend** — React app, production build served by nginx
 - **redis** — message store between tracker and api
+- **nginx** — reverse proxy, routes `/api/` to backend and `/` to frontend
 
 ---
 
@@ -33,20 +33,14 @@ Radius: `1 km`
 
 ### Requirements
 - Docker + Docker Compose
-- Node.js 18+
 
-### Run backend
+### Run
 ```bash
 docker-compose up --build
 ```
 
-### Run frontend
-```bash
-cd frontend && npm start
-```
-
-Frontend: `http://localhost:3000`  
-API: `http://localhost:8000`
+App will be available at `http://localhost:8080`  
+API will be available at `http://localhost:8080/api`
 
 ---
 
@@ -54,10 +48,16 @@ API: `http://localhost:8000`
 
 | Method | URL | Description |
 |--------|-----|-------------|
-| GET | `/flights` | All current flights overhead |
-| GET | `/flights/history` | All flights seen in last 24h |
-| GET | `/flights/{id}` | Single flight by ID |
-| GET | `/status` | Tracker status |
+| GET | `/api/flights` | All current flights overhead |
+| GET | `/api/flights/history` | All flights seen in last 24h |
+| GET | `/api/flights/{id}` | Single flight by ID |
+| GET | `/api/status` | Tracker status |
+
+---
+
+## 🔄 CI/CD
+
+Automatically deploys to VPS on every push to `master` via GitHub Actions.
 
 ---
 
