@@ -211,12 +211,17 @@ body {
 
 /* ── Footer ─────────────────────────────────────────────── */
 .footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   text-align: center;
-  padding: 20px;
+  padding: 10px;
   font-family: "Courier New", monospace;
   font-size: 0.75rem;
   color: #666;
   letter-spacing: 1px;
+  background: #000;
 }
 
 .footer a {

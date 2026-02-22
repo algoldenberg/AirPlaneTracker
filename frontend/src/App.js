@@ -71,6 +71,8 @@ function App() {
           <a href="https://github.com/algoldenberg/AirPlaneTracker/blob/master/LICENSE" target="_blank" rel="noreferrer">MIT License</a>
           {" · "}
           © 2026 Alex Goldenberg
+          {" · "}
+          Data by <a href="https://github.com/JeanExtreme002/FlightRadarAPI" target="_blank" rel="noreferrer">FlightRadarAPI</a>
         </footer>
       </div>
     </BrowserRouter>
