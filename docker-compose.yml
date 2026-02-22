@@ -24,12 +24,7 @@ services:
   frontend:
     build: ./frontend
     restart: always
-
-  nginx:
-    build: ./nginx
-    restart: always
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - api
-      - frontend
