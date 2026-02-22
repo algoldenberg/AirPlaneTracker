@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import FlightBoard from "./components/FlightBoard";
+import HistoryBoard from "./components/HistoryBoard";
 
 const API_URL = "/api";
 
-function App() {
+function LivePage() {
   const [flights, setFlights] = useState([]);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [error, setError] = useState(null);
@@ -26,10 +28,45 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
+  return <FlightBoard flights={flights} updatedAt={updatedAt} error={error} />;
+}
+
+function HistoryPage() {
+  const [flights, setFlights] = useState([]);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const res = await fetch(`${API_URL}/flights/history`);
+        const data = await res.json();
+        setFlights(data.flights);
+        setError(null);
+      } catch (e) {
+        setError("Нет связи с сервером");
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
+  return <HistoryBoard flights={flights} error={error} />;
+}
+
+function App() {
   return (
-    <div className="app">
-      <FlightBoard flights={flights} updatedAt={updatedAt} error={error} />
-    </div>
+    <BrowserRouter>
+      <div className="app">
+        <nav className="nav">
+          <Link to="/">Live</Link>
+          <Link to="/history">History</Link>
+        </nav>
+        <Routes>
+          <Route path="/" element={<LivePage />} />
+          <Route path="/history" element={<HistoryPage />} />
+        </Routes>
+      </div>
+    </BrowserRouter>
   );
 }
 

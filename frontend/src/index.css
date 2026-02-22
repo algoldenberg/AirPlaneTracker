@@ -185,3 +185,26 @@ body {
     padding: 18px 24px;
   }
 }
+
+/* ── Nav ────────────────────────────────────────────────── */
+.nav {
+  max-width: 1000px;
+  margin: 0 auto 12px auto;
+  display: flex;
+  gap: 20px;
+}
+
+.nav a {
+  color: #f5c518;
+  text-decoration: none;
+  font-family: "Courier New", monospace;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 6px 12px;
+  border: 1px solid #333;
+}
+
+.nav a:hover {
+  border-color: #f5c518;
+}
