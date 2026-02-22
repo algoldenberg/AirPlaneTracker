@@ -4,6 +4,9 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
 
   tracker:
     build: ./services/tracker
@@ -28,3 +31,6 @@ services:
       - "8080:80"
     depends_on:
       - api
+
+volumes:
+  redis_data:
