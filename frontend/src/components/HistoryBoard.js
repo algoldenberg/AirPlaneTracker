@@ -17,13 +17,34 @@ function HistoryBoard({ flights, error }) {
         <span>Altitude</span>
         <span>Speed</span>
         <span>Heading</span>
+        <span>Time</span>
       </div>
 
       <div className="board-body">
         {flights.length === 0 ? (
           <div className="no-flights">No flight history yet</div>
         ) : (
-          flights.map((f) => <FlightRow key={f.id} flight={f} />)
+          flights.map((f) => (
+            <div className="flight-row" key={f.id}>
+              <span className="callsign">{f.callsign}</span>
+              <span className="route">
+                {f.origin || "???"} → {f.destination || "???"}
+              </span>
+              <span className="aircraft">{f.aircraft || "—"}</span>
+              <span className="altitude">{f.altitude_ft ? `${f.altitude_ft.toLocaleString()} ft` : "—"}</span>
+              <span className="speed">{f.speed_kts ? `${f.speed_kts} kts` : "—"}</span>
+              <span className="heading">{f.heading_deg ? `${f.heading_deg}°` : "—"}</span>
+              <span className="time">
+                {f.updated_at
+                  ? new Date(f.updated_at).toLocaleTimeString("he-IL", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      timeZone: "Asia/Jerusalem",
+                    })
+                  : "—"}
+              </span>
+            </div>
+          ))
         )}
       </div>
     </div>
