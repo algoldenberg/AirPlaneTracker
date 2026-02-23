@@ -1,3 +1,24 @@
+import os
+import json
+import time
+import logging
+import redis
+
+from datetime import datetime
+from FlightRadar24 import FlightRadar24API
+from dotenv import load_dotenv
+
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger("tracker")
+
+HOME_LAT        = float(os.getenv("HOME_LAT"))
+HOME_LON        = float(os.getenv("HOME_LON"))
 RADIUS_METERS   = int(os.getenv("RADIUS_METERS"))
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL"))
 REDIS_HOST      = os.getenv("REDIS_HOST", "localhost")
@@ -36,19 +57,12 @@ def is_landing(flight: dict) -> bool:
     origin = flight.get("origin") or ""
     destination = flight.get("destination") or ""
 
-    # Высота в диапазоне глиссады
     if not (MIN_ALT <= alt <= MAX_ALT):
         return False
-
-    # Курс в диапазоне посадки
     if not (MIN_HDG <= hdg <= MAX_HDG):
         return False
-
-    # Летит в TLV или destination неизвестен
     if destination and destination != "TLV":
         return False
-
-    # Не вылетает из TLV
     if origin == "TLV":
         return False
 
@@ -66,14 +80,11 @@ def main():
             flights  = fr.get_flights(bounds=bounds)
             airborne = [parse_flight(f) for f in flights if not getattr(f, "on_ground", False)]
 
-            # Фильтруем только посадочные рейсы
             landing = [f for f in airborne if is_landing(f)]
 
-            # Текущие рейсы
             r.set("flights:current", json.dumps(landing))
             r.set("flights:updated_at", datetime.now(tz=__import__('zoneinfo').ZoneInfo("Asia/Jerusalem")).isoformat())
 
-            # История — каждый новый самолёт пишем один раз
             for flight in landing:
                 key = f"flights:history:{flight['id']}"
                 if not r.exists(key):
