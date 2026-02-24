@@ -25,8 +25,8 @@ REDIS_HOST      = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT      = int(os.getenv("REDIS_PORT", 6379))
 
 # Фильтры посадочной глиссады
-MIN_ALT = 1600
-MAX_ALT = 2500
+MIN_ALT = 1200
+MAX_ALT = 3000
 MIN_HDG = 85
 MAX_HDG = 130
 
@@ -89,7 +89,6 @@ def main():
                 key = f"flights:history:{flight['id']}"
                 if not r.exists(key):
                     r.lpush("flights:history:list", json.dumps(flight))
-                    r.ltrim("flights:history:list", 0, 199)
                     r.set(key, "1")
                     r.expire(key, 86400)
                     log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")
