@@ -89,6 +89,7 @@ def main():
                 key = f"flights:history:{flight['id']}"
                 if not r.exists(key):
                     r.lpush("flights:history:list", json.dumps(flight))
+                    r.ltrim("flights:history:list", 0, 199)
                     r.set(key, "1")
                     r.expire(key, 86400)
                     log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")

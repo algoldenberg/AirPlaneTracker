@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 import redis
 from fastapi import FastAPI, HTTPException
@@ -51,9 +52,22 @@ def get_flights():
 def get_history():
     items = r.lrange("flights:history:list", 0, -1)
     flights = [json.loads(item) for item in items]
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    filtered = []
+    for f in flights:
+        try:
+            updated = datetime.fromisoformat(f["updated_at"])
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=timezone.utc)
+            if updated > cutoff:
+                filtered.append(f)
+        except:
+            filtered.append(f)
+
     return {
-        "count": len(flights),
-        "flights": flights,
+        "count": len(filtered),
+        "flights": filtered,
     }
 
 
