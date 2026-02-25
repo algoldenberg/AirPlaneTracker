@@ -96,9 +96,11 @@ def main():
                     r.expire(key, 86400)
                     log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")
 
-            # Удаляем записи старше 24 часов из Sorted Set
+# Удаляем записи старше 24 часов из Sorted Set
             cutoff_ts = now_ts - 86400
-            r.zremrangebyscore("flights:history:zset", 0, cutoff_ts)
+            removed = r.zremrangebyscore("flights:history:zset", 0, cutoff_ts)
+            if removed:
+                log.info(f"🗑  Removed {removed} old records from history at {datetime.now(tz=__import__('zoneinfo').ZoneInfo('Asia/Jerusalem')).strftime('%Y-%m-%d %H:%M:%S')}")
 
             log.info(f"✈  {len(landing)} flights overhead")
 
