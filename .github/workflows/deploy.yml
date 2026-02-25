@@ -21,3 +21,4 @@ jobs:
             git pull origin master
             docker-compose up --build -d --no-deps frontend
             docker-compose up --build -d --no-deps tracker
+            docker-compose up --build -d --no-deps bot

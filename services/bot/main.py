@@ -25,9 +25,7 @@ POLL_INTERVAL = 10  # секунд
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
 
-# Множество chat_id для рассылки уведомлений
 subscribers: set[int] = set()
-# Рейсы которые уже были уведомлены (чтобы не спамить)
 notified: set[str] = set()
 
 
@@ -57,6 +55,30 @@ def format_time(updated_at: str) -> str:
         return "—"
 
 
+async def send_history(chat_id: int):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{API_URL}/flights/history") as resp:
+            data = await resp.json()
+
+    flights = data.get("flights", [])
+    if not flights:
+        await bot.send_message(chat_id, "📭 История пуста")
+        return
+
+    lines = [f"📋 *История за 24 часа* — {len(flights)} рейсов\n"]
+    for f in flights:
+        t = format_time(f.get("updated_at", ""))
+        origin      = f.get("origin") or "???"
+        destination = f.get("destination") or "???"
+        callsign    = f.get("callsign") or "—"
+        aircraft    = f.get("aircraft") or "—"
+        alt         = f.get("altitude_ft")
+        alt_str     = f"{alt:,} ft" if alt else "—"
+        lines.append(f"*{callsign}* {origin}→{destination} {aircraft} {alt_str} `{t}`")
+
+    await bot.send_message(chat_id, "\n".join(lines), parse_mode="Markdown")
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     subscribers.add(message.chat.id)
@@ -74,33 +96,11 @@ async def cmd_start(message: Message):
 
 @dp.callback_query(F.data == "history")
 async def show_history(callback: CallbackQuery):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(f"{API_URL}/flights/history") as resp:
-            data = await resp.json()
-
-    flights = data.get("flights", [])
-    if not flights:
-        await callback.message.answer("📭 История пуста")
-        await callback.answer()
-        return
-
-    lines = [f"📋 *История за 24 часа* — {len(flights)} рейсов\n"]
-    for f in flights:
-        t = format_time(f.get("updated_at", ""))
-        origin      = f.get("origin") or "???"
-        destination = f.get("destination") or "???"
-        callsign    = f.get("callsign") or "—"
-        aircraft    = f.get("aircraft") or "—"
-        alt         = f.get("altitude_ft")
-        alt_str     = f"{alt:,} ft" if alt else "—"
-        lines.append(f"*{callsign}* {origin}→{destination} {aircraft} {alt_str} `{t}`")
-
-    await callback.message.answer("\n".join(lines), parse_mode="Markdown")
+    await send_history(callback.message.chat.id)
     await callback.answer()
 
 
 async def polling_loop():
-    """Фоновая задача — проверяет рейсы каждые 10 секунд и шлёт уведомления."""
     global notified
     async with aiohttp.ClientSession() as session:
         while True:
@@ -118,10 +118,11 @@ async def polling_loop():
                         for chat_id in subscribers:
                             try:
                                 await bot.send_message(chat_id, text, parse_mode="Markdown")
+                                # Отправляем историю после каждого нового самолёта
+                                await send_history(chat_id)
                             except Exception as e:
                                 log.error(f"Send error: {e}")
 
-                # Убираем из notified рейсы которых больше нет
                 notified &= current_ids
 
             except Exception as e:
