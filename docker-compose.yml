@@ -32,5 +32,13 @@ services:
     depends_on:
       - api
 
+  bot:
+    build: ./services/bot
+    restart: always
+    env_file:
+      - ./services/bot/.env
+    depends_on:
+      - api
+
 volumes:
   redis_data:
