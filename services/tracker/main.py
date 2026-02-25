@@ -85,13 +85,20 @@ def main():
             r.set("flights:current", json.dumps(landing))
             r.set("flights:updated_at", datetime.now(tz=__import__('zoneinfo').ZoneInfo("Asia/Jerusalem")).isoformat())
 
+            now_ts = time.time()
+
             for flight in landing:
                 key = f"flights:history:{flight['id']}"
                 if not r.exists(key):
-                    r.lpush("flights:history:list", json.dumps(flight))
+                    # Sorted Set: score = unix timestamp, member = json
+                    r.zadd("flights:history:zset", {json.dumps(flight): now_ts})
                     r.set(key, "1")
                     r.expire(key, 86400)
                     log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")
+
+            # Удаляем записи старше 24 часов из Sorted Set
+            cutoff_ts = now_ts - 86400
+            r.zremrangebyscore("flights:history:zset", 0, cutoff_ts)
 
             log.info(f"✈  {len(landing)} flights overhead")
 
