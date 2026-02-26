@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import redis
+import sqlite3
 
 from datetime import datetime
 from FlightRadar24 import FlightRadar24API
@@ -23,12 +24,34 @@ RADIUS_METERS   = int(os.getenv("RADIUS_METERS"))
 UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL"))
 REDIS_HOST      = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT      = int(os.getenv("REDIS_PORT", 6379))
+DB_PATH         = os.getenv("DB_PATH", "/data/flights.db")
 
-# Фильтры посадочной глиссады
 MIN_ALT = 1200
 MAX_ALT = 3000
 MIN_HDG = 85
 MAX_HDG = 130
+
+
+def init_db(conn):
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS history (
+            id          TEXT PRIMARY KEY,
+            callsign    TEXT,
+            airline_icao TEXT,
+            aircraft    TEXT,
+            registration TEXT,
+            origin      TEXT,
+            destination TEXT,
+            latitude    REAL,
+            longitude   REAL,
+            altitude_ft INTEGER,
+            speed_kts   INTEGER,
+            heading_deg INTEGER,
+            vertical_speed INTEGER,
+            seen_at     REAL  -- unix timestamp
+        )
+    """)
+    conn.commit()
 
 
 def parse_flight(flight) -> dict:
@@ -52,9 +75,9 @@ def parse_flight(flight) -> dict:
 
 
 def is_landing(flight: dict) -> bool:
-    alt = flight.get("altitude_ft") or 0
-    hdg = flight.get("heading_deg") or 0
-    origin = flight.get("origin") or ""
+    alt         = flight.get("altitude_ft") or 0
+    hdg         = flight.get("heading_deg") or 0
+    origin      = flight.get("origin") or ""
     destination = flight.get("destination") or ""
 
     if not (MIN_ALT <= alt <= MAX_ALT):
@@ -70,8 +93,11 @@ def is_landing(flight: dict) -> bool:
 
 
 def main():
-    r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-    fr = FlightRadar24API()
+    r   = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+    fr  = FlightRadar24API()
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    init_db(conn)
+
     log.info(f"Tracker started. Radius: {RADIUS_METERS}m, interval: {UPDATE_INTERVAL}s")
 
     while True:
@@ -79,8 +105,7 @@ def main():
             bounds   = fr.get_bounds_by_point(HOME_LAT, HOME_LON, RADIUS_METERS)
             flights  = fr.get_flights(bounds=bounds)
             airborne = [parse_flight(f) for f in flights if not getattr(f, "on_ground", False)]
-
-            landing = [f for f in airborne if is_landing(f)]
+            landing  = [f for f in airborne if is_landing(f)]
 
             r.set("flights:current", json.dumps(landing))
             r.set("flights:updated_at", datetime.now(tz=__import__('zoneinfo').ZoneInfo("Asia/Jerusalem")).isoformat())
@@ -88,19 +113,32 @@ def main():
             now_ts = time.time()
 
             for flight in landing:
-                key = f"flights:history:{flight['id']}"
-                if not r.exists(key):
-                    # Sorted Set: score = unix timestamp, member = json
-                    r.zadd("flights:history:zset", {json.dumps(flight): now_ts})
-                    r.set(key, "1")
-                    r.expire(key, 86400)
+                existing = conn.execute(
+                    "SELECT id FROM history WHERE id = ?", (flight["id"],)
+                ).fetchone()
+                if not existing:
+                    conn.execute("""
+                        INSERT INTO history VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """, (
+                        flight["id"], flight["callsign"], flight["airline_icao"],
+                        flight["aircraft"], flight["registration"],
+                        flight["origin"], flight["destination"],
+                        flight["latitude"], flight["longitude"],
+                        flight["altitude_ft"], flight["speed_kts"],
+                        flight["heading_deg"], flight["vertical_speed"],
+                        now_ts
+                    ))
+                    conn.commit()
                     log.info(f"📝 Logged: {flight['callsign']}  {flight['origin']} → {flight['destination']}  {flight['altitude_ft']}ft")
 
-# Удаляем записи старше 24 часов из Sorted Set
+            # Удаляем записи старше 24 часов
             cutoff_ts = now_ts - 86400
-            removed = r.zremrangebyscore("flights:history:zset", 0, cutoff_ts)
+            removed = conn.execute(
+                "DELETE FROM history WHERE seen_at < ?", (cutoff_ts,)
+            ).rowcount
+            conn.commit()
             if removed:
-                log.info(f"🗑  Removed {removed} old records from history at {datetime.now(tz=__import__('zoneinfo').ZoneInfo('Asia/Jerusalem')).strftime('%Y-%m-%d %H:%M:%S')}")
+                log.info(f"🗑  Removed {removed} old records at {datetime.now(tz=__import__('zoneinfo').ZoneInfo('Asia/Jerusalem')).strftime('%Y-%m-%d %H:%M:%S')}")
 
             log.info(f"✈  {len(landing)} flights overhead")
 
