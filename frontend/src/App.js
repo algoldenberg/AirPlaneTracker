@@ -5,6 +5,34 @@ import HistoryBoard from "./components/HistoryBoard";
 
 const API_URL = "/api";
 
+function AlertBanner() {
+  const [alert, setAlert] = useState(null);
+
+  useEffect(() => {
+    const fetchAlert = async () => {
+      try {
+        const res = await fetch(`${API_URL}/alerts`);
+        const data = await res.json();
+        setAlert(data.active ? data.areas : null);
+      } catch {
+        setAlert(null);
+      }
+    };
+
+    fetchAlert();
+    const interval = setInterval(fetchAlert, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!alert) return null;
+
+  return (
+    <div className="alert-banner">
+      🚨 <strong>ЦЕВА АДОМ!</strong> {alert.join(", ")}
+    </div>
+  );
+}
+
 function LivePage() {
   const [flights, setFlights] = useState([]);
   const [updatedAt, setUpdatedAt] = useState(null);
@@ -57,6 +85,7 @@ function App() {
   return (
     <BrowserRouter>
       <div className="app">
+        <AlertBanner />
         <nav className="nav">
           <Link to="/">Live</Link>
           <Link to="/history">History</Link>

@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import sqlite3
+import aiohttp
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
@@ -19,11 +20,13 @@ logging.basicConfig(
 )
 log = logging.getLogger("api")
 
-REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
-DB_PATH    = os.getenv("DB_PATH", "/data/flights.db")
+REDIS_HOST   = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT   = int(os.getenv("REDIS_PORT", 6379))
+DB_PATH      = os.getenv("DB_PATH", "/data/flights.db")
+OREF_URL     = "https://www.oref.org.il/WarningMessages/alert/alerts.json"
+TARGET_AREAS = ["תל אביב - דרום", "תל אביב"]
 
-r    = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 app = FastAPI(title="✈️ AirPlaneTracker API", version="1.0.0")
 
@@ -45,20 +48,20 @@ def row_to_flight(row) -> dict:
     seen_at = row["seen_at"]
     dt = datetime.fromtimestamp(seen_at, tz=ZoneInfo("Asia/Jerusalem"))
     return {
-        "id":            row["id"],
-        "callsign":      row["callsign"],
-        "airline_icao":  row["airline_icao"],
-        "aircraft":      row["aircraft"],
-        "registration":  row["registration"],
-        "origin":        row["origin"],
-        "destination":   row["destination"],
-        "latitude":      row["latitude"],
-        "longitude":     row["longitude"],
-        "altitude_ft":   row["altitude_ft"],
-        "speed_kts":     row["speed_kts"],
-        "heading_deg":   row["heading_deg"],
+        "id":             row["id"],
+        "callsign":       row["callsign"],
+        "airline_icao":   row["airline_icao"],
+        "aircraft":       row["aircraft"],
+        "registration":   row["registration"],
+        "origin":         row["origin"],
+        "destination":    row["destination"],
+        "latitude":       row["latitude"],
+        "longitude":      row["longitude"],
+        "altitude_ft":    row["altitude_ft"],
+        "speed_kts":      row["speed_kts"],
+        "heading_deg":    row["heading_deg"],
         "vertical_speed": row["vertical_speed"],
-        "updated_at":    dt.isoformat(),
+        "updated_at":     dt.isoformat(),
     }
 
 
@@ -81,10 +84,32 @@ def get_history():
             "SELECT * FROM history WHERE seen_at > ? ORDER BY seen_at DESC",
             (cutoff_ts,)
         ).fetchall()
-        flights = [row_to_flight(r) for r in rows]
+        flights = [row_to_flight(row) for row in rows]
     finally:
         conn.close()
     return {"count": len(flights), "flights": flights}
+
+
+@app.get("/alerts")
+async def get_alerts():
+    try:
+        async with aiohttp.ClientSession(headers={
+            "Referer": "https://www.oref.org.il/",
+            "X-Requested-With": "XMLHttpRequest",
+        }) as session:
+            async with session.get(OREF_URL, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                if resp.status != 200:
+                    return {"active": False, "areas": []}
+                text = await resp.text()
+                if not text.strip():
+                    return {"active": False, "areas": []}
+                data = await resp.json(content_type=None)
+                areas = data.get("data", [])
+                matched = [a for a in areas if any(t in a for t in TARGET_AREAS)]
+                return {"active": bool(matched), "areas": matched}
+    except Exception as e:
+        log.error(f"Oref error: {e}")
+        return {"active": False, "areas": []}
 
 
 @app.get("/flights/{flight_id}")
