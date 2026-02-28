@@ -22,3 +22,4 @@ jobs:
             docker-compose up --build -d --no-deps frontend
             docker-compose up --build -d --no-deps tracker
             docker-compose up --build -d --no-deps bot
+            docker-compose up --build -d --no-deps api
