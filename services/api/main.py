@@ -97,10 +97,10 @@ async def get_alerts():
             async with session.get(OREF_URL, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 if resp.status != 200:
                     return {"active": False, "areas": []}
-                text = await resp.text()
+                text = await resp.text(encoding="utf-8-sig")
                 if not text.strip():
                     return {"active": False, "areas": []}
-                data = await resp.json(content_type=None)
+                data = json.loads(text)
                 areas = data.get("data", [])
                 matched = areas if not TARGET_AREAS else [a for a in areas if any(t in a for t in TARGET_AREAS)]
                 return {"active": bool(matched), "areas": matched}
