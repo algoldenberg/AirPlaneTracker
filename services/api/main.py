@@ -23,8 +23,8 @@ log = logging.getLogger("api")
 REDIS_HOST   = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT   = int(os.getenv("REDIS_PORT", 6379))
 DB_PATH      = os.getenv("DB_PATH", "/data/flights.db")
-OREF_URL     = "https://www.oref.org.il/WarningMessages/alert/alerts.json"
-TARGET_AREAS = ["תל אביב - דרום", "תל אביב"]
+OREF_URL     = "http://83.229.70.64:8765/alerts"
+TARGET_AREAS = []  # пустой = все тревоги
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
@@ -93,10 +93,7 @@ def get_history():
 @app.get("/alerts")
 async def get_alerts():
     try:
-        async with aiohttp.ClientSession(headers={
-            "Referer": "https://www.oref.org.il/",
-            "X-Requested-With": "XMLHttpRequest",
-        }) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.get(OREF_URL, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 if resp.status != 200:
                     return {"active": False, "areas": []}
@@ -105,7 +102,7 @@ async def get_alerts():
                     return {"active": False, "areas": []}
                 data = await resp.json(content_type=None)
                 areas = data.get("data", [])
-                matched = [a for a in areas if any(t in a for t in TARGET_AREAS)]
+                matched = areas if not TARGET_AREAS else [a for a in areas if any(t in a for t in TARGET_AREAS)]
                 return {"active": bool(matched), "areas": matched}
     except Exception as e:
         log.error(f"Oref error: {e}")
