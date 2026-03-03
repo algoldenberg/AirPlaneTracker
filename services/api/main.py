@@ -15,7 +15,7 @@ load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s  %(levelname)-8s %(message)s",
+    format="%(asctime)s  %(levelname)-8s %(message)s",/alerts
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger("api")
@@ -24,7 +24,13 @@ REDIS_HOST   = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT   = int(os.getenv("REDIS_PORT", 6379))
 DB_PATH      = os.getenv("DB_PATH", "/data/flights.db")
 OREF_URL     = "http://83.229.70.64:8765/alerts"
-TARGET_AREAS = []  # пустой = все тревоги
+TARGET_AREAS = [
+    "תל אביב - דרום",
+    "תל אביב - מרכז העיר", 
+    "תל אביב - מזרח",
+    "תל אביב - יפו",
+    "תל אביב - דרום העיר ויפו",
+]
 
 r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
@@ -106,7 +112,7 @@ async def get_alerts():
                 return {"active": bool(matched), "areas": matched}
     except Exception as e:
         log.error(f"Oref error: {e}")
-        return {"active": False, "areas": []}
+        return {"active": bool(matched), "areas": matched, "title": data.get("title", "")}
 
 
 @app.get("/flights/{flight_id}")

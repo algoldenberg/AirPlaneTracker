@@ -6,7 +6,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 from aiogram.filters import CommandStart
 
 load_dotenv()
@@ -21,16 +21,41 @@ log = logging.getLogger("bot")
 TOKEN         = os.getenv("TELEGRAM_TOKEN")
 API_URL       = os.getenv("API_URL", "http://api:8000")
 POLL_INTERVAL = 10
-OREF_URL      = "https://www.oref.org.il/WarningMessages/alert/alerts.json"
 OREF_INTERVAL = 5
-TARGET_AREAS  = ["תל אביב - דרום", "תל אביב"]
+
+TARGET_AREAS = [
+    "תל אביב - דרום",
+    "תל אביב - מרכז העיר",
+    "תל אביב - מזרח",
+    "תל אביב - יפו",
+    "תל אביב - דרום העיר ויפו",
+]
+
+AREA_TRANSLATIONS = {
+    "תל אביב - דרום":           "Tel Aviv - South",
+    "תל אביב - מרכז העיר":      "Tel Aviv - City Center",
+    "תל אביב - מזרח":           "Tel Aviv - East",
+    "תל אביב - יפו":            "Tel Aviv - Jaffa",
+    "תל אביב - דרום העיר ויפו": "Tel Aviv - South & Jaffa",
+}
+
+TITLE_TRANSLATIONS = {
+    "ירי רקטות וטילים":         "Rocket & Missile Fire",
+    "חדירת כלי טיס עוין":       "Hostile Aircraft Intrusion",
+    "רעידת אדמה":               "Earthquake",
+    "חשד לחדירת מחבלים":        "Suspected Terrorist Infiltration",
+    "אירוע חומרים מסוכנים":     "Hazardous Materials Incident",
+    "התרעה בשל גל צונמי":       "Tsunami Warning",
+}
+
+ALERT_LOGO = "/app/RedAlertLogo.png"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
 
 subscribers: set[int] = set()
 notified:    set[str] = set()
-alerted:     set[str] = set()  # активные тревоги чтобы не спамить
+alerted:     set[str] = set()
 
 
 def format_flight(f: dict) -> str:
@@ -124,7 +149,6 @@ async def polling_loop():
                         text = format_flight(flight)
                         for chat_id in subscribers:
                             try:
-                                # Уведомление о рейсе + кнопка истории
                                 await bot.send_message(
                                     chat_id, text,
                                     parse_mode="Markdown",
@@ -142,37 +166,44 @@ async def polling_loop():
 
 
 async def oref_loop():
-    """Фоновая задача — проверяет тревоги Цева Адом каждые 5 секунд."""
     global alerted
-    headers = {
-        "Referer": "https://www.oref.org.il/",
-        "X-Requested-With": "XMLHttpRequest",
-    }
-    async with aiohttp.ClientSession(headers=headers) as session:
+    async with aiohttp.ClientSession() as session:
         while True:
             try:
-                async with session.get(OREF_URL, timeout=aiohttp.ClientTimeout(total=4)) as resp:
+                async with session.get(
+                    f"{API_URL}/alerts",
+                    timeout=aiohttp.ClientTimeout(total=4)
+                ) as resp:
                     if resp.status == 200:
-                        text = await resp.text()
-                        if text.strip():
-                            data = await resp.json(content_type=None)
-                            areas = data.get("data", [])
-                            current_alerts = set()
+                        data = await resp.json()
+                        if data.get("active"):
+                            areas     = data.get("areas", [])
+                            title_he  = data.get("title", "")
+                            title_en  = TITLE_TRANSLATIONS.get(title_he, title_he)
+                            current_alerts = set(areas)
 
-                            for area in areas:
-                                if any(target in area for target in TARGET_AREAS):
-                                    current_alerts.add(area)
-                                    if area not in alerted:
-                                        log.info(f"🚨 Alert: {area}")
-                                        for chat_id in subscribers:
-                                            try:
-                                                await bot.send_message(
-                                                    chat_id,
-                                                    f"🚨 *ЦЕВА АДОМ!*\n\n📍 {area}",
-                                                    parse_mode="Markdown"
-                                                )
-                                            except Exception as e:
-                                                log.error(f"Alert send error: {e}")
+                            new_areas = current_alerts - alerted
+                            if new_areas:
+                                areas_en = ", ".join(
+                                    AREA_TRANSLATIONS.get(a, a) for a in new_areas
+                                )
+                                caption = (
+                                    f"🚨 *RED ALERT*\n"
+                                    f"*{title_en}*\n\n"
+                                    f"📍 {areas_en}"
+                                )
+                                logo = FSInputFile(ALERT_LOGO)
+                                for chat_id in subscribers:
+                                    try:
+                                        await bot.send_photo(
+                                            chat_id,
+                                            photo=logo,
+                                            caption=caption,
+                                            parse_mode="Markdown"
+                                        )
+                                    except Exception as e:
+                                        log.error(f"Alert send error: {e}")
+                                log.info(f"🚨 Alert sent: {title_en} — {areas_en}")
 
                             alerted = current_alerts
                         else:

@@ -110,6 +110,48 @@ body {
   font-size: 0.85rem;
 }
 
+/* ── Alert inside board ─────────────────────────────────── */
+.alert-inside {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+  min-height: 200px;
+  background: #cc0000;
+  animation: blink 1s step-start infinite;
+}
+
+.alert-icon {
+  font-size: 3rem;
+}
+
+.alert-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.alert-title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #ffffff;
+  font-family: "Courier New", monospace;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.alert-areas {
+  font-size: 1.1rem;
+  color: #ffdddd;
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
+}
+
+@keyframes blink {
+  50% { background: #990000; }
+}
+
 /* ── Tablet ────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .board {
@@ -127,12 +169,19 @@ body {
     grid-template-columns: 1.5fr 2fr 1fr 1fr;
   }
 
-  /* Скрываем speed и heading на планшете */
   .board-columns span:nth-child(5),
   .board-columns span:nth-child(6),
   .flight-row .speed,
   .flight-row .heading {
     display: none;
+  }
+
+  .alert-title {
+    font-size: 1.2rem;
+  }
+
+  .alert-areas {
+    font-size: 0.9rem;
   }
 }
 
@@ -154,7 +203,6 @@ body {
     grid-template-columns: 1.5fr 2fr 1fr;
   }
 
-  /* Скрываем aircraft, speed, heading на мобиле */
   .board-columns span:nth-child(3),
   .board-columns span:nth-child(5),
   .board-columns span:nth-child(6),
@@ -167,6 +215,17 @@ body {
   .flight-row {
     padding: 12px 14px;
     font-size: 0.9rem;
+  }
+
+  .alert-inside {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .alert-title {
+    font-size: 1rem;
+    letter-spacing: 1px;
   }
 }
 
@@ -231,17 +290,4 @@ body {
 
 .footer a:hover {
   text-decoration: underline;
-}
-
-.alert-banner {
-  background: #ff0000;
-  color: #ffffff;
-  text-align: center;
-  padding: 12px;
-  font-size: 1.2rem;
-  animation: blink 1s step-start infinite;
-}
-
-@keyframes blink {
-  50% { background: #cc0000; }
 }

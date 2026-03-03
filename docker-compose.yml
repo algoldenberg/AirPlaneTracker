@@ -37,6 +37,8 @@ services:
     restart: always
     env_file:
       - ./services/bot/.env
+    volumes:
+      - ./services/bot/RedAlertLogo.png:/app/RedAlertLogo.png
     depends_on:
       - api
 volumes:
