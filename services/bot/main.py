@@ -193,6 +193,7 @@ async def oref_loop():
                                     f"📍 {areas_en}"
                                 )
                                 logo = FSInputFile(ALERT_LOGO)
+                                log.info(f"🚨 Sending alert to {len(subscribers)} subscribers: {areas_en}")
                                 for chat_id in subscribers:
                                     try:
                                         await bot.send_photo(
@@ -201,9 +202,14 @@ async def oref_loop():
                                             caption=caption,
                                             parse_mode="Markdown"
                                         )
+                                        log.info(f"✅ Alert photo sent to {chat_id}")
                                     except Exception as e:
-                                        log.error(f"Alert send error: {e}")
-                                log.info(f"🚨 Alert sent: {title_en} — {areas_en}")
+                                        log.error(f"Alert send error to {chat_id}: {type(e).__name__}: {e}")
+                                        try:
+                                            await bot.send_message(chat_id, caption, parse_mode="Markdown")
+                                            log.info(f"✅ Alert text sent to {chat_id} (fallback)")
+                                        except Exception as e2:
+                                            log.error(f"Alert fallback error to {chat_id}: {e2}")
 
                             alerted = current_alerts
                         else:
@@ -213,7 +219,6 @@ async def oref_loop():
                 log.error(f"Oref error: {e}")
 
             await asyncio.sleep(OREF_INTERVAL)
-
 
 async def main():
     log.info("Bot started")
