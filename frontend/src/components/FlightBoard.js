@@ -31,7 +31,7 @@ function getAlertConfig(cat, title, areas) {
   const cat_s = String(cat);
   const areasEn = areas.map(translateArea).join(", ");
 
-  if (cat_s === "13") {
+  if (cat_s === "10" || cat_s === "13") {  // event ended
     return {
       className: "alert-inside alert-green",
       icon: "✅",

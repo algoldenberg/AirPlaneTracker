@@ -38,6 +38,7 @@ services:
     env_file:
       - ./services/bot/.env
     volumes:
+      - sqlite_data:/data
       - ./services/bot/RedAlertLogo.png:/app/RedAlertLogo.png
       - ./services/bot/HereWeGoAgain.png:/app/HereWeGoAgain.png
       - ./services/bot/Spitz.png:/app/Spitz.png

@@ -2,6 +2,7 @@ import os
 import logging
 import asyncio
 import aiohttp
+import sqlite3
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ log = logging.getLogger("bot")
 
 TOKEN         = os.getenv("TELEGRAM_TOKEN")
 API_URL       = os.getenv("API_URL", "http://api:8000")
+DB_PATH       = os.getenv("DB_PATH", "/data/flights.db")
 POLL_INTERVAL = 10
 OREF_INTERVAL = 5
 
@@ -50,6 +52,12 @@ TITLE_TRANSLATIONS = {
     "האירוע הסתיים":         "Event Ended",
 }
 
+# cat=10 или cat=13 — event ended
+# cat=14 — pre-alert
+# cat=1 и остальные — основная сирена
+CAT_ENDED    = {"10", "13"}
+CAT_PREALERT = {"14"}
+
 LOGO_ALERT    = "/app/RedAlertLogo.png"
 LOGO_PREALERT = "/app/HereWeGoAgain.png"
 LOGO_ENDED    = "/app/Spitz.png"
@@ -57,10 +65,45 @@ LOGO_ENDED    = "/app/Spitz.png"
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
 
-subscribers: set[int] = set()
-notified:    set[str] = set()
-alerted:     set[str] = set()
+notified: set[str] = set()
+alerted:  set[str] = set()
 
+
+# ── Subscribers в SQLite ─────────────────────────────────────────────────────
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS subscribers (
+            chat_id INTEGER PRIMARY KEY
+        )
+    """)
+    conn.commit()
+    return conn
+
+
+def load_subscribers() -> set[int]:
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT chat_id FROM subscribers").fetchall()
+        return {row[0] for row in rows}
+    finally:
+        conn.close()
+
+
+def save_subscriber(chat_id: int):
+    conn = get_db()
+    try:
+        conn.execute("INSERT OR IGNORE INTO subscribers (chat_id) VALUES (?)", (chat_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+subscribers: set[int] = load_subscribers()
+
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
 def format_flight(f: dict) -> str:
     origin      = f.get("origin") or "???"
@@ -121,7 +164,7 @@ async def send_history(chat_id: int):
 async def send_to_all(photo_path: str, caption: str):
     logo = FSInputFile(photo_path)
     log.info(f"Sending to {len(subscribers)} subscribers")
-    for chat_id in subscribers:
+    for chat_id in list(subscribers):
         try:
             await bot.send_photo(chat_id, photo=logo, caption=caption, parse_mode="Markdown")
             log.info(f"✅ Sent to {chat_id}")
@@ -134,9 +177,13 @@ async def send_to_all(photo_path: str, caption: str):
                 log.error(f"Fallback error {chat_id}: {e2}")
 
 
+# ── Handlers ─────────────────────────────────────────────────────────────────
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     subscribers.add(message.chat.id)
+    save_subscriber(message.chat.id)
+    log.info(f"New subscriber: {message.chat.id}, total: {len(subscribers)}")
     await message.answer(
         "✈ *Rosh Pina Flight Tracker*\n\n"
         "Я буду присылать уведомления когда самолёт пролетает над домом.\n\n"
@@ -151,6 +198,8 @@ async def show_history(callback: CallbackQuery):
     await send_history(callback.message.chat.id)
     await callback.answer()
 
+
+# ── Loops ─────────────────────────────────────────────────────────────────────
 
 async def polling_loop():
     global notified
@@ -167,7 +216,7 @@ async def polling_loop():
                     if fid not in notified:
                         notified.add(fid)
                         text = format_flight(flight)
-                        for chat_id in subscribers:
+                        for chat_id in list(subscribers):
                             try:
                                 await bot.send_message(
                                     chat_id, text,
@@ -211,8 +260,13 @@ async def oref_loop():
                                     AREA_TRANSLATIONS.get(a, a) for a in new_areas
                                 )
 
-                                if cat == "14":
-                                    # Pre-alert
+                                if cat in CAT_ENDED:
+                                    caption = (
+                                        f"✅ *All Clear*\n\n"
+                                        f"Event has ended. See you next time! 🐕"
+                                    )
+                                    photo = LOGO_ENDED
+                                elif cat in CAT_PREALERT:
                                     caption = (
                                         f"⚠️ *PRE-ALERT*\n"
                                         f"*{title_en}*\n\n"
@@ -220,15 +274,7 @@ async def oref_loop():
                                         f"🏃 Please proceed to the nearest shelter!"
                                     )
                                     photo = LOGO_PREALERT
-                                elif cat == "13":
-                                    # Event ended — приходит как активный alert
-                                    caption = (
-                                        f"✅ *All Clear*\n\n"
-                                        f"Event has ended. See you next time! 🐕"
-                                    )
-                                    photo = LOGO_ENDED
                                 else:
-                                    # cat=1 и остальные — основная сирена
                                     caption = (
                                         f"🚨 *RED ALERT*\n"
                                         f"*{title_en}*\n\n"
@@ -250,7 +296,7 @@ async def oref_loop():
 
 
 async def main():
-    log.info("Bot started")
+    log.info(f"Bot started, loaded {len(subscribers)} subscribers from DB")
     asyncio.create_task(polling_loop())
     asyncio.create_task(oref_loop())
     await dp.start_polling(bot)
