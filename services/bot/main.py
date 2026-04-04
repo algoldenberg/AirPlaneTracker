@@ -46,6 +46,8 @@ TITLE_TRANSLATIONS = {
     "חשד לחדירת מחבלים":    "Suspected Terrorist Infiltration",
     "אירוע חומרים מסוכנים": "Hazardous Materials Incident",
     "התרעה בשל גל צונמי":   "Tsunami Warning",
+    "בדקות הקרובות צפויות להתקבל התרעות באזורך": "Alerts expected in your area soon",
+    "האירוע הסתיים":         "Event Ended",
 }
 
 LOGO_ALERT    = "/app/RedAlertLogo.png"
@@ -58,7 +60,6 @@ dp  = Dispatcher()
 subscribers: set[int] = set()
 notified:    set[str] = set()
 alerted:     set[str] = set()
-was_active:  bool     = False
 
 
 def format_flight(f: dict) -> str:
@@ -185,7 +186,7 @@ async def polling_loop():
 
 
 async def oref_loop():
-    global alerted, was_active
+    global alerted
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -194,12 +195,12 @@ async def oref_loop():
                     timeout=aiohttp.ClientTimeout(total=4)
                 ) as resp:
                     if resp.status == 200:
-                        data      = await resp.json()
-                        active    = data.get("active", False)
-                        areas     = data.get("areas", [])
-                        title_he  = data.get("title", "")
-                        cat       = str(data.get("cat", ""))
-                        title_en  = TITLE_TRANSLATIONS.get(title_he, title_he)
+                        data     = await resp.json()
+                        active   = data.get("active", False)
+                        areas    = data.get("areas", [])
+                        title_he = data.get("title", "")
+                        cat      = str(data.get("cat", ""))
+                        title_en = TITLE_TRANSLATIONS.get(title_he, title_he)
 
                         if active:
                             current_alerts = set(areas)
@@ -209,8 +210,9 @@ async def oref_loop():
                                 areas_en = ", ".join(
                                     AREA_TRANSLATIONS.get(a, a) for a in new_areas
                                 )
-                                # cat=13 — pre-alert, остальное — основная сирена
-                                if cat == "13":
+
+                                if cat == "14":
+                                    # Pre-alert
                                     caption = (
                                         f"⚠️ *PRE-ALERT*\n"
                                         f"*{title_en}*\n\n"
@@ -218,7 +220,15 @@ async def oref_loop():
                                         f"🏃 Please proceed to the nearest shelter!"
                                     )
                                     photo = LOGO_PREALERT
+                                elif cat == "13":
+                                    # Event ended — приходит как активный alert
+                                    caption = (
+                                        f"✅ *All Clear*\n\n"
+                                        f"Event has ended. See you next time! 🐕"
+                                    )
+                                    photo = LOGO_ENDED
                                 else:
+                                    # cat=1 и остальные — основная сирена
                                     caption = (
                                         f"🚨 *RED ALERT*\n"
                                         f"*{title_en}*\n\n"
@@ -229,21 +239,9 @@ async def oref_loop():
                                 log.info(f"🚨 Alert cat={cat} to {len(subscribers)} subs: {areas_en}")
                                 await send_to_all(photo, caption)
 
-                            alerted    = current_alerts
-                            was_active = True
-
+                            alerted = current_alerts
                         else:
-                            # Тревога закончилась
-                            if was_active:
-                                caption = (
-                                    f"✅ *All Clear*\n\n"
-                                    f"Event has ended. See you next time! 🐕"
-                                )
-                                log.info("✅ Alert ended, sending all clear")
-                                await send_to_all(LOGO_ENDED, caption)
-
-                            alerted    = set()
-                            was_active = False
+                            alerted = set()
 
             except Exception as e:
                 log.error(f"Oref error: {e}")
