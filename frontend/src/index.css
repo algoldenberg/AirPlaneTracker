@@ -110,6 +110,8 @@ body {
   font-size: 0.85rem;
 }
 
+
+
 /* ── Alert inside board ─────────────────────────────────── */
 .alert-inside {
   display: flex;
@@ -118,8 +120,24 @@ body {
   gap: 20px;
   width: 100%;
   min-height: 200px;
+}
+
+.alert-red {
   background: #cc0000;
-  animation: blink 1s step-start infinite;
+  animation: blink-red 1s step-start infinite;
+}
+
+.alert-prealert {
+  background: #cc6600;
+  animation: blink-orange 1s step-start infinite;
+}
+
+@keyframes blink-red {
+  50% { background: #990000; }
+}
+
+@keyframes blink-orange {
+  50% { background: #994400; }
 }
 
 .alert-icon {
@@ -148,8 +166,12 @@ body {
   letter-spacing: 1px;
 }
 
-@keyframes blink {
-  50% { background: #990000; }
+.alert-sub {
+  font-size: 1rem;
+  color: #ffffff;
+  font-family: "Courier New", monospace;
+  letter-spacing: 1px;
+  font-style: italic;
 }
 
 /* ── Tablet ────────────────────────────────────────────── */

@@ -1,11 +1,52 @@
 import FlightRow from "./FlightRow";
 
-function HistoryBoard({ flights, error }) {
+const AREA_TRANSLATIONS = {
+  "תל אביב - דרום": "Tel Aviv - South",
+  "תל אביב - מרכז העיר": "Tel Aviv - City Center",
+  "תל אביב - מזרח": "Tel Aviv - East",
+  "תל אביב - יפו": "Tel Aviv - Jaffa",
+  "תל אביב - דרום העיר ויפו": "Tel Aviv - South & Jaffa",
+};
+
+const TITLE_TRANSLATIONS = {
+  "ירי רקטות וטילים": "Rocket & Missile Fire",
+  "חדירת כלי טיס עוין": "Hostile Aircraft Intrusion",
+  "רעידת אדמה": "Earthquake",
+  "חשד לחדירת מחבלים": "Suspected Terrorist Infiltration",
+  "אירוע חומרים מסוכנים": "Hazardous Materials Incident",
+  "התרעה בשל גל צונמי": "Tsunami Warning",
+};
+
+function translateArea(area) {
+  return AREA_TRANSLATIONS[area] || area;
+}
+
+function translateTitle(title) {
+  return TITLE_TRANSLATIONS[title] || title;
+}
+
+function getAlertStyle(cat) {
+  if (String(cat) === "13") return "alert-inside alert-prealert";
+  return "alert-inside alert-red";
+}
+
+function getAlertText(cat, title) {
+  if (String(cat) === "13") {
+    return { heading: "PRE-ALERT — " + translateTitle(title), sub: "⚠️ Please proceed to the nearest shelter" };
+  }
+  return { heading: "RED ALERT — " + translateTitle(title), sub: null };
+}
+
+function FlightBoard({ flights, updatedAt, error, alert }) {
+  const time = updatedAt ? new Date(updatedAt).toLocaleTimeString() : "—";
+  const alertStyle  = alert ? getAlertStyle(alert.cat) : null;
+  const alertText   = alert ? getAlertText(alert.cat, alert.title) : null;
+
   return (
     <div className="board">
       <div className="board-header">
-        <h1>✈ History — Rosh Pina 28</h1>
-        <span className="updated">{flights.length} flights in last 24h</span>
+        <h1>✈ Tel Aviv — Rosh Pina 28</h1>
+        <span className="updated">Last update: {time}</span>
       </div>
 
       {error && <div className="error">{error}</div>}
@@ -17,38 +58,28 @@ function HistoryBoard({ flights, error }) {
         <span>Altitude</span>
         <span>Speed</span>
         <span>Heading</span>
-        <span>Time</span>
       </div>
 
       <div className="board-body">
-        {flights.length === 0 ? (
-          <div className="no-flights">No flight history yet</div>
-        ) : (
-          flights.map((f) => (
-            <div className="flight-row" key={f.id}>
-              <span className="callsign">{f.callsign}</span>
-              <span className="route">
-                {f.origin || "???"} → {f.destination || "???"}
+        {alert ? (
+          <div className={alertStyle}>
+            <span className="alert-icon">{String(alert.cat) === "13" ? "⚠️" : "🚨"}</span>
+            <div className="alert-content">
+              <span className="alert-title">{alertText.heading}</span>
+              <span className="alert-areas">
+                {alert.areas.map(translateArea).join(", ")}
               </span>
-              <span className="aircraft">{f.aircraft || "—"}</span>
-              <span className="altitude">{f.altitude_ft ? `${f.altitude_ft.toLocaleString()} ft` : "—"}</span>
-              <span className="speed">{f.speed_kts ? `${f.speed_kts} kts` : "—"}</span>
-              <span className="heading">{f.heading_deg ? `${f.heading_deg}°` : "—"}</span>
-              <span className="time">
-                {f.updated_at
-                  ? new Date(f.updated_at).toLocaleTimeString("he-IL", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      timeZone: "Asia/Jerusalem",
-                    })
-                  : "—"}
-              </span>
+              {alertText.sub && <span className="alert-sub">{alertText.sub}</span>}
             </div>
-          ))
+          </div>
+        ) : flights.length === 0 ? (
+          <div className="no-flights">No flights overhead right now</div>
+        ) : (
+          flights.map((f) => <FlightRow key={f.id} flight={f} />)
         )}
       </div>
     </div>
   );
 }
 
-export default HistoryBoard;
+export default FlightBoard;

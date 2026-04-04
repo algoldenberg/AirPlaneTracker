@@ -40,15 +40,17 @@ AREA_TRANSLATIONS = {
 }
 
 TITLE_TRANSLATIONS = {
-    "ירי רקטות וטילים":         "Rocket & Missile Fire",
-    "חדירת כלי טיס עוין":       "Hostile Aircraft Intrusion",
-    "רעידת אדמה":               "Earthquake",
-    "חשד לחדירת מחבלים":        "Suspected Terrorist Infiltration",
-    "אירוע חומרים מסוכנים":     "Hazardous Materials Incident",
-    "התרעה בשל גל צונמי":       "Tsunami Warning",
+    "ירי רקטות וטילים":     "Rocket & Missile Fire",
+    "חדירת כלי טיס עוין":   "Hostile Aircraft Intrusion",
+    "רעידת אדמה":           "Earthquake",
+    "חשד לחדירת מחבלים":    "Suspected Terrorist Infiltration",
+    "אירוע חומרים מסוכנים": "Hazardous Materials Incident",
+    "התרעה בשל גל צונמי":   "Tsunami Warning",
 }
 
-ALERT_LOGO = "/app/RedAlertLogo.png"
+LOGO_ALERT    = "/app/RedAlertLogo.png"
+LOGO_PREALERT = "/app/HereWeGoAgain.png"
+LOGO_ENDED    = "/app/Spitz.png"
 
 bot = Bot(token=TOKEN)
 dp  = Dispatcher()
@@ -56,6 +58,7 @@ dp  = Dispatcher()
 subscribers: set[int] = set()
 notified:    set[str] = set()
 alerted:     set[str] = set()
+was_active:  bool     = False
 
 
 def format_flight(f: dict) -> str:
@@ -114,6 +117,22 @@ async def send_history(chat_id: int):
     await bot.send_message(chat_id, "\n".join(lines), parse_mode="Markdown")
 
 
+async def send_to_all(photo_path: str, caption: str):
+    logo = FSInputFile(photo_path)
+    log.info(f"Sending to {len(subscribers)} subscribers")
+    for chat_id in subscribers:
+        try:
+            await bot.send_photo(chat_id, photo=logo, caption=caption, parse_mode="Markdown")
+            log.info(f"✅ Sent to {chat_id}")
+        except Exception as e:
+            log.error(f"Photo error {chat_id}: {type(e).__name__}: {e}")
+            try:
+                await bot.send_message(chat_id, caption, parse_mode="Markdown")
+                log.info(f"✅ Text fallback sent to {chat_id}")
+            except Exception as e2:
+                log.error(f"Fallback error {chat_id}: {e2}")
+
+
 @dp.message(CommandStart())
 async def cmd_start(message: Message):
     subscribers.add(message.chat.id)
@@ -166,7 +185,7 @@ async def polling_loop():
 
 
 async def oref_loop():
-    global alerted
+    global alerted, was_active
     async with aiohttp.ClientSession() as session:
         while True:
             try:
@@ -175,50 +194,62 @@ async def oref_loop():
                     timeout=aiohttp.ClientTimeout(total=4)
                 ) as resp:
                     if resp.status == 200:
-                        data = await resp.json()
-                        if data.get("active"):
-                            areas     = data.get("areas", [])
-                            title_he  = data.get("title", "")
-                            title_en  = TITLE_TRANSLATIONS.get(title_he, title_he)
-                            current_alerts = set(areas)
+                        data      = await resp.json()
+                        active    = data.get("active", False)
+                        areas     = data.get("areas", [])
+                        title_he  = data.get("title", "")
+                        cat       = str(data.get("cat", ""))
+                        title_en  = TITLE_TRANSLATIONS.get(title_he, title_he)
 
+                        if active:
+                            current_alerts = set(areas)
                             new_areas = current_alerts - alerted
+
                             if new_areas:
                                 areas_en = ", ".join(
                                     AREA_TRANSLATIONS.get(a, a) for a in new_areas
                                 )
-                                caption = (
-                                    f"🚨 *RED ALERT*\n"
-                                    f"*{title_en}*\n\n"
-                                    f"📍 {areas_en}"
-                                )
-                                logo = FSInputFile(ALERT_LOGO)
-                                log.info(f"🚨 Sending alert to {len(subscribers)} subscribers: {areas_en}")
-                                for chat_id in subscribers:
-                                    try:
-                                        await bot.send_photo(
-                                            chat_id,
-                                            photo=logo,
-                                            caption=caption,
-                                            parse_mode="Markdown"
-                                        )
-                                        log.info(f"✅ Alert photo sent to {chat_id}")
-                                    except Exception as e:
-                                        log.error(f"Alert send error to {chat_id}: {type(e).__name__}: {e}")
-                                        try:
-                                            await bot.send_message(chat_id, caption, parse_mode="Markdown")
-                                            log.info(f"✅ Alert text sent to {chat_id} (fallback)")
-                                        except Exception as e2:
-                                            log.error(f"Alert fallback error to {chat_id}: {e2}")
+                                # cat=13 — pre-alert, остальное — основная сирена
+                                if cat == "13":
+                                    caption = (
+                                        f"⚠️ *PRE-ALERT*\n"
+                                        f"*{title_en}*\n\n"
+                                        f"📍 {areas_en}\n\n"
+                                        f"🏃 Please proceed to the nearest shelter!"
+                                    )
+                                    photo = LOGO_PREALERT
+                                else:
+                                    caption = (
+                                        f"🚨 *RED ALERT*\n"
+                                        f"*{title_en}*\n\n"
+                                        f"📍 {areas_en}"
+                                    )
+                                    photo = LOGO_ALERT
 
-                            alerted = current_alerts
+                                log.info(f"🚨 Alert cat={cat} to {len(subscribers)} subs: {areas_en}")
+                                await send_to_all(photo, caption)
+
+                            alerted    = current_alerts
+                            was_active = True
+
                         else:
-                            alerted = set()
+                            # Тревога закончилась
+                            if was_active:
+                                caption = (
+                                    f"✅ *All Clear*\n\n"
+                                    f"Event has ended. See you next time! 🐕"
+                                )
+                                log.info("✅ Alert ended, sending all clear")
+                                await send_to_all(LOGO_ENDED, caption)
+
+                            alerted    = set()
+                            was_active = False
 
             except Exception as e:
                 log.error(f"Oref error: {e}")
 
             await asyncio.sleep(OREF_INTERVAL)
+
 
 async def main():
     log.info("Bot started")

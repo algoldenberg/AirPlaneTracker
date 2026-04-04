@@ -26,7 +26,7 @@ DB_PATH      = os.getenv("DB_PATH", "/data/flights.db")
 OREF_URL     = "http://83.229.70.64:8765/alerts"
 TARGET_AREAS = [
     "תל אביב - דרום",
-    "תל אביב - מרכז העיר", 
+    "תל אביב - מרכז העיר",
     "תל אביב - מזרח",
     "תל אביב - יפו",
     "תל אביב - דרום העיר ויפו",
@@ -102,17 +102,23 @@ async def get_alerts():
         async with aiohttp.ClientSession() as session:
             async with session.get(OREF_URL, timeout=aiohttp.ClientTimeout(total=4)) as resp:
                 if resp.status != 200:
-                    return {"active": False, "areas": []}
+                    return {"active": False, "areas": [], "title": "", "cat": ""}
                 text = await resp.text(encoding="utf-8-sig")
                 if not text.strip():
-                    return {"active": False, "areas": []}
+                    return {"active": False, "areas": [], "title": "", "cat": ""}
                 data = json.loads(text)
+                log.info(f"Oref response: cat={data.get('cat')} title={data.get('title')} areas={data.get('data', [])}")
                 areas = data.get("data", [])
-                matched = areas if not TARGET_AREAS else [a for a in areas if any(t in a for t in TARGET_AREAS)]
-                return {"active": bool(matched), "areas": matched}
+                matched = [a for a in areas if any(t in a for t in TARGET_AREAS)]
+                return {
+                    "active": bool(matched),
+                    "areas":  matched,
+                    "title":  data.get("title", ""),
+                    "cat":    data.get("cat", ""),
+                }
     except Exception as e:
         log.error(f"Oref error: {e}")
-        return {"active": bool(matched), "areas": matched, "title": data.get("title", "")}
+        return {"active": False, "areas": [], "title": "", "cat": ""}
 
 
 @app.get("/flights/{flight_id}")
@@ -133,3 +139,4 @@ def get_status():
     data       = r.get("flights:current")
     count      = len(json.loads(data)) if data else 0
     return {"status": "ok", "flights_count": count, "updated_at": updated_at}
+    

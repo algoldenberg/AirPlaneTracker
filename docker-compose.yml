@@ -39,6 +39,8 @@ services:
       - ./services/bot/.env
     volumes:
       - ./services/bot/RedAlertLogo.png:/app/RedAlertLogo.png
+      - ./services/bot/HereWeGoAgain.png:/app/HereWeGoAgain.png
+      - ./services/bot/Spitz.png:/app/Spitz.png
     depends_on:
       - api
 volumes:

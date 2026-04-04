@@ -28,7 +28,7 @@ function LivePage() {
       try {
         const res = await fetch(`${API_URL}/alerts`);
         const data = await res.json();
-        setActiveAlert(data.active ? { areas: data.areas, title: data.title } : null);
+        setActiveAlert(data.active ? { areas: data.areas, title: data.title, cat: data.cat } : null);
       } catch {
         setActiveAlert(null);
       }
